@@ -1,5 +1,6 @@
 from pybit.unified_trading import HTTP
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from . import config
 
@@ -100,6 +101,15 @@ class BybitClient:
             for col in numeric_columns:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # Correggiamo il side: Sell -> Buy, Buy -> Sell
+            df['side'] = np.where(df['side'] == 'Sell', 'Buy', 'Sell')
+            
+            # Calcola il capitale investito
+            df['invested_capital'] = df['closedSize'] * df['avgEntryPrice']
+            
+            # Calcola la percentuale di guadagno/perdita sul capitale investito
+            df['pct'] = (df['closedPnl'] / df['invested_capital'] * 100).round(2)
                     
         return df
 
@@ -126,6 +136,14 @@ class BybitClient:
         
         period = resample_map.get(timeframe, 'D')
         
+        # Funzione per calcolare la media ponderata del PNL
+        def weighted_pnl_pct(group):
+            total_invested = (group['closedSize'] * group['avgEntryPrice']).sum()
+            if total_invested == 0:
+                return 0
+            weighted_pct = (group['closedPnl'].sum() / total_invested * 100)
+            return weighted_pct
+        
         # Aggrega i dati
         aggregated = df.resample(period).agg({
             'closedPnl': 'sum',
@@ -136,5 +154,10 @@ class BybitClient:
         # Calcola statistiche aggiuntive
         aggregated['winRate'] = (df.resample(period)['closedPnl']
                                 .apply(lambda x: (x > 0).mean() * 100))
+                                
+        # Calcola la percentuale sul capitale totale investito nel periodo
+        aggregated['pct'] = (df.resample(period)
+                             .apply(weighted_pnl_pct))
+        aggregated['pct'] = aggregated['pct'].round(2)
         
         return aggregated.reset_index()

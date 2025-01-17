@@ -175,6 +175,24 @@ def plot_aggregated_pnl_chart(df, timeframe, title):
         logger.error(f"Error creating aggregated chart: {str(e)}", exc_info=True)
         raise
 
+def style_pnl_column(val):
+    """Helper function to style PNL values and percentages with colors"""
+    if val > 0:
+        color = 'rgb(0, 255, 0)'  # Verde brillante come nell'istogramma
+    elif val < 0:
+        color = 'rgb(255, 0, 0)'  # Rosso
+    else:
+        color = 'gray'
+    return f'color: {color}'
+
+def style_side_column(val):
+    """Helper function to style side values (Buy/Sell)"""
+    if val == 'Buy':
+        color = 'rgb(0, 255, 0)'  # Verde brillante
+    else:  # Sell
+        color = 'rgb(255, 0, 0)'  # Rosso
+    return f'color: {color}'
+
 def main():
     # Inizializza o incrementa il contatore di refresh nello state
     if 'refresh_counter' not in st.session_state:
@@ -285,16 +303,39 @@ def main():
         # Aggregated data
         st.header("Aggregated Data")
         aggregated_df = client.aggregate_pnl(df, timeframe)
-        # Sort aggregated data with most recent first
+        # Sort aggregated data with most recent first and apply styling
         aggregated_df = aggregated_df.sort_values('updatedTime', ascending=False)
-        st.dataframe(aggregated_df)
+        st.dataframe(
+            aggregated_df.style.applymap(
+                style_pnl_column,
+                subset=['closedPnl', 'pct']
+            ).format({
+                'closedPnl': '{:.2f}',
+                'pct': '{:.2f}%',
+                'winRate': '{:.1f}%'
+            })
+        )
         
         # Trade details
         st.header("Trade Details")
-        st.dataframe(df[[
+        trades_df = df[[
             'symbol', 'side', 'closedSize', 'avgEntryPrice', 'avgExitPrice',
-            'closedPnl', 'createdTime', 'updatedTime'
-        ]])
+            'closedPnl', 'pct', 'createdTime', 'updatedTime'
+        ]]
+        st.dataframe(
+            trades_df.style.applymap(
+                style_pnl_column,
+                subset=['closedPnl', 'pct']
+            ).applymap(
+                style_side_column,
+                subset=['side']
+            ).format({
+                'pct': '{:.2f}%',
+                'closedPnl': '{:.2f}',
+                'avgEntryPrice': '{:.2f}',
+                'avgExitPrice': '{:.2f}'
+            })
+        )
 
 if __name__ == "__main__":
     main()

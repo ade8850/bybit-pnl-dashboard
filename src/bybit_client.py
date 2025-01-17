@@ -35,17 +35,18 @@ class BybitClient:
 
     def get_all_closed_pnl(self, start_time=None, end_time=None, symbol=None):
         """
-        Recupera tutti i PNL chiusi suddividendo il periodo in intervalli di 7 giorni
+        Recupera tutti i PNL chiusi dal periodo specificato. 
+        Se non viene specificato un periodo, cerca di recuperare l'ultimo anno di dati.
         """
         all_pnl = []
         
-        # Se non sono specificate le date, usa gli ultimi 7 giorni
+        # Se non sono specificate le date, prova a recuperare l'ultimo anno
         if not end_time:
             end_time = datetime.now()
         if not start_time:
-            start_time = end_time - timedelta(days=7)
+            start_time = end_time - timedelta(days=365)  # Prova a prendere un anno di dati
         
-        # Divide il periodo in intervalli di 7 giorni
+        # Divide il periodo in intervalli di 7 giorni (limitazione API Bybit)
         current_start = start_time
         while current_start < end_time:
             # Calcola la fine dell'intervallo corrente (max 7 giorni)

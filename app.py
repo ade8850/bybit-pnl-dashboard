@@ -153,6 +153,31 @@ def main():
         st.error("No data available for the selected period")
         logger.warning("No data available for the selected period")
         return
+        
+    # Get unique symbols for the filter
+    symbols = ["All"] + sorted(df["symbol"].unique().tolist())
+    selected_symbol = st.sidebar.selectbox(
+        "Symbol",
+        symbols,
+        index=0
+    )
+    
+    # Side filter
+    selected_side = st.sidebar.selectbox(
+        "Side",
+        ["Both", "Buy", "Sell"],
+        index=0
+    )
+    
+    # Apply symbol filter
+    if selected_symbol != "All":
+        df = df[df["symbol"] == selected_symbol]
+        logger.info(f"Filtered by symbol: {selected_symbol}")
+    
+    # Apply side filter
+    if selected_side != "Both":
+        df = df[df["side"] == selected_side]
+        logger.info(f"Filtered by side: {selected_side}")
             
     # Sort DataFrame with most recent first
     df = df.sort_values('updatedTime', ascending=False)

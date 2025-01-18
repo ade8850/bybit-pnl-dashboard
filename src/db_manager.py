@@ -28,7 +28,8 @@ class DBManager:
                     createdTime TIMESTAMP,
                     updatedTime TIMESTAMP,
                     invested_capital REAL,
-                    pct REAL
+                    pct REAL,
+                    trade_duration REAL
                 )
             """)
             self.conn.commit()
@@ -42,6 +43,13 @@ class DBManager:
         try:
             # Cancella i dati esistenti
             self.conn.execute("DELETE FROM trades")
+            
+            # Prepara il DataFrame per il salvataggio
+            df = df.copy()
+            
+            # Calcola la durata del trade in minuti se non presente
+            if 'trade_duration' not in df.columns:
+                df['trade_duration'] = (pd.to_datetime(df['updatedTime']) - pd.to_datetime(df['createdTime'])).dt.total_seconds() / 60
             
             # Inserisce i nuovi dati
             df.to_sql('trades', self.conn, if_exists='replace', index=False)

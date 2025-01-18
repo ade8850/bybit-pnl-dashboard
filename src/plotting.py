@@ -1,5 +1,6 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import pandas as pd
 from .logger import logger
 
 def plot_detailed_pnl_chart(df, title):

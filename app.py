@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from src.bybit_client import BybitClient
 from src.db_manager import DBManager
 from src.config import SUPPORTED_TIMEFRAMES, DEFAULT_TIMEFRAME
-from src.logger import logger
+from src.logger import logger, clear_logs
 from src.utils import style_pnl_column, style_side_column
 from src.plotting import plot_detailed_pnl_chart, plot_aggregated_pnl_chart
 
@@ -33,6 +33,9 @@ def get_initial_data(db, client):
         return False
 
 def main():
+    # Clear logs at every page refresh
+    clear_logs()
+    
     # Inizializza il DBManager nello state di Streamlit
     if 'db' not in st.session_state:
         st.session_state.db = DBManager()
@@ -190,6 +193,25 @@ def main():
     aggregated_df = client.aggregate_pnl(df, timeframe)
     # Sort aggregated data with most recent first and apply styling
     aggregated_df = aggregated_df.sort_values('updatedTime', ascending=False)
+    
+    # Format duration in minutes to "Xh Ym"
+    def format_duration(mins):
+        if pd.isna(mins):
+            return "0m"
+        hours = int(mins // 60)
+        minutes = int(mins % 60)
+        return f"{hours}h {minutes}m"
+    
+    # Convert durations to human readable format
+    if 'duration_total' in aggregated_df.columns:
+        aggregated_df['duration'] = aggregated_df['duration_total'].apply(format_duration)
+    if 'duration_avg' in aggregated_df.columns:
+        aggregated_df['avg_duration'] = aggregated_df['duration_avg'].apply(format_duration)
+    
+    # Riordina le colonne
+    columns_order = ['updatedTime', 'trades', 'fillCount', 'closedPnl', 'pct', 'winRate', 'avg_duration', 'duration']
+    aggregated_df = aggregated_df[columns_order]
+    
     st.dataframe(
         aggregated_df.style.applymap(
             style_pnl_column,
@@ -203,9 +225,13 @@ def main():
     
     # Trade details
     st.header("Trade Details")
+    # Calcola la durata in ore e minuti
+    df['duration'] = (pd.to_datetime(df['updatedTime']) - pd.to_datetime(df['createdTime'])).apply(
+        lambda x: f"{int(x.total_seconds()//3600)}h {int((x.total_seconds()%3600)/60)}m"
+    )
     trades_df = df[[
         'symbol', 'side', 'closedSize', 'avgEntryPrice', 'avgExitPrice',
-        'closedPnl', 'pct', 'createdTime', 'updatedTime'
+        'closedPnl', 'pct', 'duration', 'createdTime', 'updatedTime'
     ]]
     st.dataframe(
         trades_df.style.applymap(

@@ -144,13 +144,27 @@ class BybitClient:
                 return 0
             weighted_pct = (group['closedPnl'].sum() / total_invested * 100)
             return weighted_pct
+            
+        # Calcola durate
+        df['duration'] = (df.index - df['createdTime']).dt.total_seconds() / 60
+
+        # Funzioni di aggregazione per le durate
+        def total_duration(durations):
+            return durations.sum()
+            
+        def avg_duration(durations):
+            return durations.mean()
         
         # Aggrega i dati
         aggregated = df.resample(period).agg({
             'closedPnl': 'sum',
             'fillCount': 'sum',
-            'symbol': 'count'
-        }).rename(columns={'symbol': 'trades'})
+            'symbol': 'count',  # numero di trades
+            'duration': [total_duration, avg_duration]  # durate totali e medie
+        })
+        
+        # Appiattisci i livelli delle colonne
+        aggregated.columns = ['closedPnl', 'fillCount', 'trades', 'duration_total', 'duration_avg']
         
         # Calcola statistiche aggiuntive
         aggregated['winRate'] = (df.resample(period)['closedPnl']

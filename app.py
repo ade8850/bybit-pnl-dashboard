@@ -15,17 +15,15 @@ def get_initial_data(db, client):
     try:
         df = db.get_trades()
         if df.empty:
-            logger.info("No data in database, loading initial data from Bybit...")
-            with st.spinner("Loading initial data from Bybit..."):
-                # Carichiamo prima l'ultima settimana
-                end_time = datetime.now()
-                start_time = end_time - timedelta(days=7)
-                df = client.get_pnl_dataframe(start_time, end_time)
-                if not df.empty:
-                    db.save_trades(df)
-                    st.success("Initial data loaded successfully!")
-                else:
-                    st.error("No data available from Bybit")
+            logger.info("No data in database, loading initial year data from Bybit...")
+            end_time = datetime.now()
+            start_time = end_time - timedelta(days=365)
+            df = client.get_pnl_dataframe(start_time, end_time)
+            if not df.empty:
+                db.save_trades(df)
+                st.success("Initial data loaded successfully!")
+            else:
+                st.error("No data available from Bybit")
         return not df.empty
     except Exception as e:
         logger.error(f"Error loading initial data: {str(e)}")
@@ -35,10 +33,6 @@ def get_initial_data(db, client):
 def main():
     # Clear logs at every page refresh
     clear_logs()
-    
-    # Inizializza il DBManager nello state di Streamlit
-    if 'db' not in st.session_state:
-        st.session_state.db = DBManager()
     
     # Inizializza o incrementa il contatore di refresh nello state
     if 'refresh_counter' not in st.session_state:
@@ -50,13 +44,45 @@ def main():
     with col_title:
         st.title("Bybit PNL Dashboard")
         
+    # Sidebar filters
+    st.sidebar.header("Filters")
+
+    # Account selection (primo filtro)
+    available_accounts = BybitClient.get_available_accounts()
+    
+    # Inizializza l'account corrente nello state se non presente o non più valido
+    if ('current_account' not in st.session_state or 
+        st.session_state.current_account not in available_accounts):
+        st.session_state.current_account = available_accounts[0]
+
+    selected_account = st.sidebar.selectbox(
+        "Account",
+        available_accounts,
+        index=available_accounts.index(st.session_state.current_account)
+    )
+    
+    # Se l'account è cambiato, aggiorna lo state
+    if selected_account != st.session_state.current_account:
+        st.session_state.current_account = selected_account
+        st.rerun()  # Ricarica la pagina
+        
+    # Inizializza/aggiorna il DBManager per l'account corrente
+    st.session_state.db = DBManager(st.session_state.current_account)
+    client = BybitClient(st.session_state.current_account)
+    
+    # Carica i dati iniziali se necessario
+    if not get_initial_data(st.session_state.db, client):
+        return
+    
+    # Refresh buttons
     with col_refresh_week:
         if st.button("🔄 Refresh Week", use_container_width=True, help="Refresh last week's data"):
             st.session_state.refresh_counter += 1
-            client = BybitClient()
             with st.spinner("Loading last week's data..."):
-                # Carica solo l'ultima settimana
+                # Carica solo l'ultima settimana includendo il giorno corrente
                 end_time = datetime.now()
+                # Normalizza la fine del periodo all'inizio del prossimo giorno
+                end_time = datetime(end_time.year, end_time.month, end_time.day) + timedelta(days=1)
                 start_time = end_time - timedelta(days=7)
                 new_df = client.get_pnl_dataframe(start_time, end_time)
                 
@@ -84,9 +110,10 @@ def main():
     with col_refresh_year:
         if st.button("📅 Load Year", use_container_width=True, help="Load full year of data"):
             st.session_state.refresh_counter += 1
-            client = BybitClient()
             with st.spinner("Loading full year of data..."):
                 end_time = datetime.now()
+                # Normalizza la fine del periodo all'inizio del prossimo giorno
+                end_time = datetime(end_time.year, end_time.month, end_time.day) + timedelta(days=1)
                 start_time = end_time - timedelta(days=365)
                 df = client.get_pnl_dataframe(start_time, end_time)
                 if not df.empty:
@@ -97,15 +124,7 @@ def main():
                     return
             
     logger.info(f"Starting application (refresh #{st.session_state.refresh_counter})")
-    
-    # Carica i dati iniziali se necessario
-    client = BybitClient()
-    if not get_initial_data(st.session_state.db, client):
-        return
         
-    # Sidebar filters
-    st.sidebar.header("Filters")
-    
     # Period selection
     period = st.sidebar.selectbox(
         "Period",
@@ -113,8 +132,9 @@ def main():
         index=1
     )
     
-    # Calculate start and end dates
+    # Calculate start and end dates for filters
     end_time = datetime.now()
+    # Per le query dei filtri usiamo la data corrente
     if period == "7D":
         start_time = end_time - timedelta(days=7)
     elif period == "1M":

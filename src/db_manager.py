@@ -4,8 +4,21 @@ from pathlib import Path
 from .logger import logger
 
 class DBManager:
-    def __init__(self, db_path="data.sqlite"):
-        self.db_path = db_path
+    def __init__(self, account="main"):
+        """
+        Inizializza il database manager per uno specifico account
+        
+        :param account: Nome dell'account (default: "main")
+        """
+        # Normalizza il nome dell'account per il filesystem
+        self.account = account.lower().replace(" ", "_")
+        
+        # Crea la directory data se non esiste
+        data_dir = Path("data")
+        data_dir.mkdir(exist_ok=True)
+        
+        # Il path del database sarà data/account_trades.sqlite
+        self.db_path = data_dir / f"{self.account}_trades.sqlite"
         self.conn = None
         self.connect()
         
@@ -33,9 +46,9 @@ class DBManager:
                 )
             """)
             self.conn.commit()
-            logger.info("Connected to SQLite and initialized tables")
+            logger.info(f"Connected to SQLite database for account {self.account}")
         except Exception as e:
-            logger.error(f"Error connecting to database: {str(e)}")
+            logger.error(f"Error connecting to database for account {self.account}: {str(e)}")
             raise
             
     def save_trades(self, df):
@@ -54,9 +67,9 @@ class DBManager:
             # Inserisce i nuovi dati
             df.to_sql('trades', self.conn, if_exists='replace', index=False)
             self.conn.commit()
-            logger.info(f"Saved {len(df)} trades to database")
+            logger.info(f"Saved {len(df)} trades to database for account {self.account}")
         except Exception as e:
-            logger.error(f"Error saving trades to database: {str(e)}")
+            logger.error(f"Error saving trades to database for account {self.account}: {str(e)}")
             raise
             
     def get_trades(self, start_time=None, end_time=None):
@@ -82,13 +95,14 @@ class DBManager:
             df['updatedTime'] = pd.to_datetime(df['updatedTime'])
             return df
         except Exception as e:
-            logger.error(f"Error retrieving trades from database: {str(e)}")
+            logger.error(f"Error retrieving trades for account {self.account}: {str(e)}")
             raise
             
     def close(self):
         """Chiude la connessione al database"""
         if self.conn:
             self.conn.close()
+            logger.info(f"Closed database connection for account {self.account}")
             
     def __del__(self):
         """Assicura che la connessione venga chiusa quando l'oggetto viene distrutto"""

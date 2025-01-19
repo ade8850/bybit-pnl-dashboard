@@ -6,8 +6,9 @@ A simple and convenient dashboard for tracking your Bybit trading PnL (Profit an
 
 - Real-time PnL tracking
 - Clean and intuitive interface
-- Easy to set up and use
-- SQLite for data caching and faster load times
+- Multiple account support
+- Local data caching for faster load times
+- Detailed performance metrics and charts
 
 ## Requirements
 
@@ -33,11 +34,27 @@ source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file with your Bybit API credentials:
+4. Create a `.env` file with your Bybit API credentials. You can configure one main account:
 ```
 BYBIT_API_KEY=your_api_key
 BYBIT_API_SECRET=your_api_secret
 ```
+
+Or multiple accounts using the suffix pattern:
+```
+# Main account
+BYBIT_API_KEY_MAIN=your_main_api_key
+BYBIT_API_SECRET_MAIN=your_main_api_secret
+
+# Additional accounts
+BYBIT_API_KEY_ACCOUNT2=your_second_api_key
+BYBIT_API_SECRET_ACCOUNT2=your_second_api_secret
+
+BYBIT_API_KEY_ACCOUNT3=your_third_api_key
+BYBIT_API_SECRET_ACCOUNT3=your_third_api_secret
+```
+
+Each account configuration will be automatically detected and made available in the dashboard.
 
 ## Usage
 
@@ -47,6 +64,16 @@ streamlit run app.py
 ```
 
 2. Your default browser will automatically open with the dashboard. If it doesn't, the terminal will show you the local URL (typically `http://localhost:8501`)
+
+3. Use the account selector in the sidebar to switch between different Bybit accounts
+
+### Data Management
+
+- Initial data load: When selecting an account for the first time, the dashboard automatically loads the last year of trading data
+- Weekly refresh: Use the "Refresh Week" button to update the last 7 days of data
+- Full reload: Use the "Load Year" button to reload an entire year of trading data
+
+Each account maintains its own separate cache of trading data.
 
 ## License
 
